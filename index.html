@@ -222,11 +222,31 @@ textarea.mono{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",
 .lowlegend{font-size:12px;color:var(--amber);display:inline-flex;align-items:center;gap:6px}
 .lowlegend i{width:12px;height:12px;border-radius:3px;background:#fff1dc;box-shadow:inset 0 -2px 0 #f0a640}
 /* 공문서 규칙 점검 */
-.lint{margin-top:8px;font-size:12.5px;border-radius:8px;padding:8px 12px;display:none}
+.ed{position:relative}
+.ed-hl,.ed-ta{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif;font-size:14px;line-height:1.6;letter-spacing:-.01em;tab-size:4}
+.ed-hl{position:absolute;inset:0;margin:0;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;color:transparent;pointer-events:none;background:#fff;border-color:transparent!important}
+.ed-ta{position:relative;z-index:1;background:transparent!important;display:block;width:100%}
+.ed-hl mark{color:transparent;background:rgba(200,55,45,.13);border-radius:2px;text-decoration:underline wavy #d0342c;text-decoration-thickness:1.5px;text-underline-offset:3px;text-decoration-skip-ink:none}
+.ed-hl mark.on{background:rgba(200,55,45,.3)}
+.ed-hl mark.zero{display:inline-block;width:.6em;background:rgba(200,55,45,.3);height:1.2em;vertical-align:text-bottom;border-radius:2px}
+.lint{margin-top:8px;font-size:12.5px;border-radius:8px;padding:9px 12px;display:none}
 .lint.ok{display:block;background:var(--ok-l);color:var(--ok)}
-.lint.warn{display:block;background:var(--amber-l);color:#7a4400}
-.lint ul{margin:4px 0 6px;padding-left:18px}.lint li{margin:2px 0}
+.lint.warn{display:block;background:#fff5f4;border:1px solid #f3cfcb;color:#7c1f17}
+.lint-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.lint-h b{font-size:13px}.lint-h .grow{flex:1}
 .lint .btn{height:26px;font-size:12px;padding:0 10px}
+.sug{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:7px 0;border-top:1px solid #f6dcd9}
+.sug:first-of-type{border-top:0}
+.sug .why{font-size:11.5px;color:#9b4a42;grid-column:1/-1;margin-bottom:-2px}
+.sug .fix{font-family:"Malgun Gothic","맑은 고딕",sans-serif;line-height:1.5;word-break:break-all;cursor:pointer}
+.sug del{background:rgba(200,55,45,.12);color:#b3261e;text-decoration:line-through;border-radius:3px;padding:0 3px;white-space:pre-wrap}
+.sug ins{background:var(--ok-l);color:var(--ok);text-decoration:none;border-radius:3px;padding:0 3px;font-weight:600;white-space:pre-wrap}
+.sug .arrow{color:#9b4a42;margin:0 4px}
+.sug .apply{height:24px;font-size:11.5px;padding:0 9px;border-color:#f0c4bf;color:#b3261e;background:#fff}
+.sug .apply:hover{background:#fde9e7}
+.sug .note{font-size:11.5px;color:#9b4a42;margin-left:8px}
+.lint-h .opt{color:#9b4a42}
+.lint .more{font-size:12px;color:#9b4a42;padding-top:6px}
 /* fill handle */
 .fh{position:fixed;width:9px;height:9px;background:var(--blue);border:1.5px solid #fff;border-radius:2px;cursor:crosshair;z-index:55;display:none;touch-action:none;box-shadow:0 0 0 1px var(--blue)}
 .fh.show{display:block}
@@ -404,7 +424,7 @@ body.filling,body.filling *{cursor:crosshair!important;user-select:none}
             <div class="field"><div class="lab"><label for="titleOut">제목</label><span class="grow"></span><button class="copy" data-copy="titleOut">복사</button></div>
               <input class="txt" id="titleOut" spellcheck="false"></div>
             <div class="field"><div class="lab"><label for="summaryOut">개요</label><span class="grow"></span><button class="linkish" id="regen" hidden>다시 만들기</button><button class="copy" data-copy="summaryOut">복사</button></div>
-              <textarea class="txt mono" id="summaryOut" spellcheck="false" rows="12"></textarea>
+              <div class="ed" id="sumEd"><div class="ed-hl txt mono" id="sumHl" aria-hidden="true"></div><textarea class="txt mono ed-ta" id="summaryOut" spellcheck="false" rows="12"></textarea></div>
               <span class="opt">직접 고친 뒤에는 자동으로 바뀌지 않아요. 원래대로 돌리려면 '다시 만들기'를 누르세요.</span>
               <div class="lint" id="lintBox" aria-live="polite"></div></div>
           </div>
@@ -2174,30 +2194,108 @@ function genText(sum){
   if(!fnameTouched){const dt=new Date(),ymd=`${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,"0")}${String(dt.getDate()).padStart(2,"0")}`;
     $("#fname").value=`품목내역_${ymd}${label?"_"+label.replace(/[\\/:*?"<>|]/g,"").slice(0,30):""}.xls`;}
 }
-/* ---------- 공문서 규칙 점검 ---------- */
-const LINT=[
-  {m:"마지막은 2타 띄우고 '끝.'으로 맺어요",t:x=>!/\S  끝\.\s*$/.test(x),f:x=>x.replace(/\s*끝\.?\s*$/,"").replace(/\s+$/,"").replace(/([^.])$/,"$1.")+"  끝."},
-  {m:"물결표(~)는 앞뒤 말에 붙여 써요",t:x=>/\s[~∼]|[~∼]\s/.test(x),f:x=>x.replace(/\s*[~∼]\s*/g,"~")},
-  {m:"쌍점(:)은 앞말에 붙이고 뒷말과 띄워요",t:x=>/[^\d\s] +:|[가-힣a-zA-Z)]:(?=[^\s\d/])/.test(x),f:x=>x.replace(/([^\d\s]) +:/g,"$1:").replace(/([가-힣a-zA-Z)]):(?=[^\s\d/])/g,"$1: ")},
-  {m:"날짜는 '2026. 10. 28.'처럼 연·월·일 대신 마침표로 써요",t:x=>/\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/.test(x),
-    f:x=>x.replace(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(\s*\(?([월화수목금토일])요일\)?)?/g,(m,y,mo,d,_,w)=>`${y}. ${+mo}. ${+d}.`+(w?`(${w})`:"")).replace(/\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/g,(m,y,mo,d)=>`${y}. ${+mo}. ${+d}.`)},
-  {m:"시간은 '17:00'처럼 24시각제와 쌍점으로 써요",t:x=>/\d{1,2}\s*시\s*\d{1,2}\s*분|\d{1,2}\s*시(?=\s*[~∼\-]|\s*$|\s*\))/m.test(x),f:x=>x.split("\n").map(normTime).join("\n")},
-  {m:"총액은 '금37,500원(금삼만칠천오백원)'처럼 한글 금액을 함께 써요",t:x=>/(총\s*액|총 금액|소요예산|합\s*계)\s*:\s*금?[\d,]+원(?!\()/.test(x),
-    f:x=>x.replace(/((?:총\s*액|총 금액|소요예산|합\s*계)\s*:\s*)금?([\d,]+)원(?!\()/g,(m,p,n)=>{const v=+n.replace(/,/g,"");return p+wonH(v);})},
-  {m:"'붙임'은 붙여 쓰고 쌍점을 찍지 않아요",t:x=>/붙\s+임|붙임\s*:/.test(x),f:x=>x.replace(/붙\s+임/g,"붙임").replace(/붙임\s*:\s*/g,"붙임  ")},
+/* ---------- 공문서 규칙 점검: 틀린 곳 빨간 표시 + 교정 추천 ---------- */
+// 각 규칙은 [{s,e,fix}]를 돌려줌 (s~e를 fix로 바꾸면 규칙에 맞음)
+function allMatches(re,x,fn){const out=[];re.lastIndex=0;let m;while((m=re.exec(x))){const r=fn(m);if(r)out.push(r);if(m[0].length===0)re.lastIndex++;}return out;}
+function to24(ap,h){h=+h;if(ap==="오후"&&h<12)h+=12;if(ap==="오전"&&h===12)h=0;return String(h).padStart(2,"0");}
+const SYMLV=[[/^\d{1,2}\.\s/,0],[/^[가-하]\.\s/,1],[/^\d{1,2}\)\s/,2],[/^[가-하]\)\s/,3],[/^\(\d{1,2}\)\s/,4],[/^\([가-하]\)\s/,5],[/^[①-⑳]\s?/,6],[/^[㉮-㉻]\s?/,7]];
+const RULES=[
+ {id:"date",name:"날짜 표기",why:"연·월·일 글자 대신 마침표를 찍어요 (2026. 10. 28.)",find:x=>[
+   ...allMatches(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*\(?([월화수목금토일])요일\)?)?/g,x,m=>({s:m.index,e:m.index+m[0].length,fix:`${m[1]}. ${+m[2]}. ${+m[3]}.`+(m[4]?`(${m[4]})`:"")})),
+   ...allMatches(/\b(\d{4})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{1,2})\b\.?/g,x,m=>({s:m.index,e:m.index+m[0].length,fix:`${m[1]}. ${+m[2]}. ${+m[3]}.`})),
+   ...allMatches(/\b(\d{4})\.\s?(\d{1,2})\.\s?(\d{1,2})(?![\d.])/g,x,m=>({s:m.index,e:m.index+m[0].length,fix:`${m[1]}. ${+m[2]}. ${+m[3]}.`})),
+   ...allMatches(/\(([월화수목금토일])요일\)/g,x,m=>({s:m.index,e:m.index+m[0].length,fix:`(${m[1]})`}))]},
+ {id:"time",name:"시간 표기",why:"24시각제로 시·분 글자 없이 쌍점을 써요 (17:00)",find:x=>[
+   ...allMatches(/(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?\s*[~∼\-–]\s*(오전|오후)?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?/g,x,m=>{
+     const ap1=m[1]||"",ap2=m[4]||ap1;let h1=+to24(ap1,m[2]),h2=+to24(ap2,m[5]);if(!m[4]&&ap1==="오후"&&h2<h1)h2+=12;
+     const f=(h,mi)=>`${String(h%24).padStart(2,"0")}:${String(mi||0).padStart(2,"0")}`;
+     return {s:m.index+(m[0].length-m[0].trimStart().length),e:m.index+m[0].length,fix:`${f(h1,m[3])}~${f(h2,m[6])}`};}),
+   ...allMatches(/(오전|오후)\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분)?/g,x,m=>({s:m.index,e:m.index+m[0].length,fix:`${to24(m[1],m[2])}:${String(m[3]||0).padStart(2,"0")}`})),
+   ...allMatches(/(?<![오전후]\s?)(\d{1,2})\s*시\s*(\d{1,2})\s*분/g,x,m=>({s:m.index,e:m.index+m[0].length,fix:`${m[1].padStart(2,"0")}:${m[2].padStart(2,"0")}`})),
+   ...allMatches(/(?<![오전후\d]\s?)(\d{1,2})\s*시(?=$|[\s~∼\-–)\],.]|부터|까지|에|경|정각)(?!\s*\d{1,2}\s*분)/gm,x,m=>({s:m.index,e:m.index+m[0].length,fix:`${m[1].padStart(2,"0")}:00`}))]},
+ {id:"tilde",name:"물결표",why:"물결표(~)는 앞뒤 말에 붙여 써요",find:x=>allMatches(/\s+[~∼]\s*|\s*[~∼]\s+|∼/g,x,m=>({s:m.index,e:m.index+m[0].length,fix:"~"}))},
+ {id:"colon",name:"쌍점",why:"쌍점(:)은 앞말에 붙이고 뒷말과 한 칸 띄워요",find:x=>[
+   ...allMatches(/(?<=[^\d\s]) +:/g,x,m=>({s:m.index,e:m.index+m[0].length,fix:":"})),
+   ...allMatches(/(?<=[가-힣a-zA-Z)]):(?=[^\s\d/])/g,x,m=>({s:m.index,e:m.index+1,fix:": "}))]},
+ {id:"money",name:"금액 표기",why:"총액은 숫자 뒤 괄호 안에 한글로 함께 적어요",find:x=>[
+   ...allMatches(/((?:총\s*액|총\s*금액|소요\s*예산|합\s*계|금\s*액)\s*:\s*)(금\s*)?(\d[\d,]*)\s*원(?!\s*\()/g,x,m=>{const v=+m[3].replace(/,/g,"");if(!v)return null;const st=m.index+m[1].length;return {s:st,e:m.index+m[0].length,fix:wonH(v)};}),
+   ...allMatches(/(=\s*)(금\s*)?(\d[\d,]*)\s*원(?!\s*\()/g,x,m=>{const v=+m[3].replace(/,/g,"");if(!v)return null;const st=m.index+m[1].length;return {s:st,e:m.index+m[0].length,fix:wonH(v)};})]},
+ {id:"sym",name:"항목 기호 띄어쓰기",why:"항목 기호 다음은 한 칸(1타) 띄워요",find:x=>allMatches(/^([ \t]*)(\d{1,2}\.|[가-하]\.|\d{1,2}\)|[가-하]\)|\(\d{1,2}\)|\([가-하]\))(?=[^\s\d.])/gm,x,m=>{const p=m.index+m[1].length+m[2].length;return {s:p,e:p,fix:" "};})},
+ {id:"indent",name:"들여쓰기",why:"하위 항목은 상위 항목보다 2타(한 칸 두 번) 들여 써요",find:x=>{
+   const out=[];let off=0,hasTop=false,inAtt=false;
+   for(const line of x.split("\n")){
+     const lead=line.match(/^[ \t]*/)[0],body=line.slice(lead.length);
+     if(/^붙\s*임/.test(body))inAtt=true;else if(!line.trim())inAtt=false;
+     if(!inAtt){const lv=(SYMLV.find(([re])=>re.test(body))||[])[1];
+       if(lv===0&&!lead.length)hasTop=true;
+       if(lv!=null&&(hasTop||lv===0)){const want=" ".repeat(lv*2);if(lead.replace(/\t/g,"  ")!==want)out.push({s:off,e:off+lead.length,fix:want,show:body.slice(0,8)});}}
+     off+=line.length+1;}
+   return out;}},
+ {id:"attach",name:"붙임 표기",why:"'붙임'은 붙여 쓰고 쌍점 없이 2타 띄워 첨부물을 적어요",find:x=>[
+   ...allMatches(/^붙\s+임/gm,x,m=>({s:m.index,e:m.index+m[0].length,fix:"붙임"})),
+   ...allMatches(/^(붙임)(\s*:\s*|\s(?!\s)|(?=\S))(?=\S)/gm,x,m=>({s:m.index+m[1].length,e:m.index+m[0].length,fix:"  "}))]},
+ {id:"end",name:"끝 표시",why:"마지막 글자에서 2타 띄우고 '끝.'을 써요",find:x=>{
+   const t=x.replace(/\s+$/,"");if(!t)return [];
+   const m=t.match(/(\S?)([ \t]*)끝\s*\.?$/);
+   if(m){const ok=/^.*\S  끝\.$/s.test(t)&&/[.)]$/.test(t.slice(0,t.length-4).replace(/\s+$/,""));
+     if(ok&&x===t)return [];
+     const st=t.length-m[0].length+m[1].length;const before=t.slice(0,st);
+     return [{s:st,e:x.length,fix:(/[.]$/.test(before)?"":".")+"  끝."}];}
+   const last=t.match(/(\S+)$/);const st=t.length-last[1].length;
+   return [{s:st,e:x.length,fix:last[1].replace(/([^.])$/,"$1.")+"  끝."}];}},
 ];
+function lintIssues(x){
+  let list=[];RULES.forEach(r=>{let f=[];try{f=r.find(x)||[];}catch(e){}f.forEach(i=>{if(x.slice(i.s,i.e)!==i.fix)list.push({...i,rule:r});});});
+  list.sort((a,b)=>a.s-b.s||b.e-a.e);
+  const out=[];let last=-1;for(const i of list){if(i.s>=last||i.s===i.e&&i.s>=last){out.push(i);last=Math.max(last,i.e);}}
+  return out;
+}
+function applyFix(x,i){return x.slice(0,i.s)+i.fix+x.slice(i.e);}
+function fixAll(x){for(let n=0;n<6;n++){const is=lintIssues(x);if(!is.length)break;for(const i of is.slice().sort((a,b)=>b.s-a.s))x=applyFix(x,i);}return x;}
+let curIssues=[];
+function renderHl(){
+  const x=$("#summaryOut").value,hl=$("#sumHl");let h="",p=0;
+  curIssues.forEach((i,k)=>{h+=esc(x.slice(p,i.s));h+=i.s===i.e?`<mark class="zero" data-k="${k}"></mark>`:`<mark data-k="${k}">${esc(x.slice(i.s,i.e))}</mark>`;p=i.e;});
+  h+=esc(x.slice(p))+"\n";hl.innerHTML=h;syncHl();
+}
+function syncHl(){const ta=$("#summaryOut"),hl=$("#sumHl");hl.scrollTop=ta.scrollTop;const sb=ta.offsetWidth-ta.clientWidth-2;hl.style.paddingRight=`calc(11px + ${Math.max(0,sb)}px)`;}
+function showTxt(t){return t.replace(/ /g,"∨").replace(/\n/g,"↵");}
+function dispIssue(x,i){
+  if(i.rule.id==="indent"){const n=i.e-i.s,m=i.fix.length;return {b:`${"∨".repeat(n)}${i.show}`,a:`${"∨".repeat(m)}${i.show}`,note:`앞 공백 ${n}칸 → ${m}칸`};}
+  if(i.rule.id==="end"){const ls=x.lastIndexOf("\n",i.s-1)+1;const ws=Math.max(ls,i.s-8);return {b:x.slice(ws,i.e).replace(/\s+$/,""),a:x.slice(ws,i.s)+i.fix};}
+  const seg=x.slice(i.s,i.e);
+  if(seg.trim().length>=2)return {b:seg,a:i.fix};
+  // 짧은 부분(띄어쓰기·쌍점 등)은 앞뒤 글자를 함께 보여 줌
+  const ls=x.lastIndexOf("\n",i.s-1)+1,le=(x.indexOf("\n",i.e)+1||x.length+1)-1;
+  const ws=Math.max(ls,i.s-4),we=Math.min(le,i.e+4);
+  return {b:x.slice(ws,we),a:x.slice(ws,i.s)+i.fix+x.slice(i.e,we)};
+}
 function lintDoc(){
   const x=$("#summaryOut").value,box=$("#lintBox");
+  curIssues=clean(x)?lintIssues(x):[];renderHl();
   if(!clean(x)){box.className="lint";box.innerHTML="";return [];}
-  const bad=LINT.filter(r=>{try{return r.t(x);}catch(e){return false;}});
-  if(!bad.length){box.className="lint ok";box.textContent="✓ 공문서 작성 규칙에 맞아요";}
-  else{box.className="lint warn";box.innerHTML="<b>공문서 규칙 점검</b><ul>"+bad.map(r=>`<li>${esc(r.m)}</li>`).join("")+'</ul><button class="btn" id="lintFix" type="button">자동 고치기</button>';
-    $("#lintFix").onclick=()=>{let y=$("#summaryOut").value;bad.forEach(r=>{try{y=r.f(y);}catch(e){}});
-      // 끝 표시는 마지막에 다시 맞춤
-      y=LINT[0].t(y)?LINT[0].f(y):y;$("#summaryOut").value=y;sumTouched=true;$("#regen").hidden=false;autosave();lintDoc();toast("공문서 규칙에 맞게 고쳤어요");};}
-  return bad;
+  if(!curIssues.length){box.className="lint ok";box.textContent="✓ 공문서 작성 규칙에 맞아요";return [];}
+  box.className="lint warn";
+  const ctx=i=>{const a=x.slice(i.s,i.e);return a.trim()?a:(i.show||x.slice(Math.max(0,i.s-6),i.s)+"⎵");};
+  box.innerHTML=`<div class="lint-h"><b>교정 추천 ${curIssues.length}건</b><span class="opt">∨는 띄어쓰기 한 칸이에요. 추천을 누르면 위치를 보여 줘요.</span><span class="grow"></span><button class="btn" id="lintFix" type="button">모두 고치기</button></div>`+
+    curIssues.slice(0,8).map((i,k)=>`<div class="sug" data-k="${k}"><span class="why">${esc(i.rule.name)} · ${esc(i.rule.why)}</span>
+      ${(d=>`<span class="fix" title="개요에서 위치 보기"><del>${esc(showTxt(d.b))}</del><span class="arrow">→</span><ins>${esc(showTxt(d.a))}</ins>${d.note?`<span class="note">${esc(d.note)}</span>`:""}</span>`)(dispIssue(x,i))}
+      <button class="btn apply" type="button" data-k="${k}">적용</button></div>`).join("")+(curIssues.length>8?`<div class="more">외 ${curIssues.length-8}건은 [모두 고치기]로 함께 고쳐요.</div>`:"");
+  return curIssues;
 }
+function setSummary(y,msg){const ta=$("#summaryOut");ta.value=y;sumTouched=true;$("#regen").hidden=false;autosave();lintDoc();if(msg)toast(msg);}
+$("#lintBox").addEventListener("click",e=>{
+  if(e.target.id==="lintFix"){setSummary(fixAll($("#summaryOut").value),"공문서 규칙에 맞게 모두 고쳤어요");return;}
+  const ap=e.target.closest(".apply");
+  if(ap){const i=curIssues[+ap.dataset.k];if(i)setSummary(applyFix($("#summaryOut").value,i),"추천대로 고쳤어요");return;}
+  const sg=e.target.closest(".sug");
+  if(sg){const i=curIssues[+sg.dataset.k];if(!i)return;const ta=$("#summaryOut");ta.focus();ta.setSelectionRange(i.s,Math.max(i.e,i.s));
+    document.querySelectorAll("#sumHl mark").forEach(m=>m.classList.toggle("on",m.dataset.k===sg.dataset.k));
+    const lineH=parseFloat(getComputedStyle(ta).lineHeight)||22;const ln=ta.value.slice(0,i.s).split("\n").length-1;ta.scrollTop=Math.max(0,ln*lineH-ta.clientHeight/2);syncHl();}
+});
 $("#summaryOut").addEventListener("input",lintDoc);
+$("#summaryOut").addEventListener("scroll",syncHl);
+if(window.ResizeObserver)new ResizeObserver(()=>syncHl()).observe($("#summaryOut"));
 document.querySelectorAll("button.copy").forEach(b=>b.onclick=async()=>{
   const el=$("#"+b.dataset.copy);if(!el.value){toast("복사할 내용이 없어요.");return;}
   let ok=false;try{await navigator.clipboard.writeText(el.value);ok=true;}catch(e){}
