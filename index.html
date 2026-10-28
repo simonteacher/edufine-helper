@@ -221,6 +221,12 @@ textarea.mono{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",
 .pv td.low{background:#fff1dc!important;box-shadow:inset 0 -2px 0 #f0a640}
 .lowlegend{font-size:12px;color:var(--amber);display:inline-flex;align-items:center;gap:6px}
 .lowlegend i{width:12px;height:12px;border-radius:3px;background:#fff1dc;box-shadow:inset 0 -2px 0 #f0a640}
+/* 공문서 규칙 점검 */
+.lint{margin-top:8px;font-size:12.5px;border-radius:8px;padding:8px 12px;display:none}
+.lint.ok{display:block;background:var(--ok-l);color:var(--ok)}
+.lint.warn{display:block;background:var(--amber-l);color:#7a4400}
+.lint ul{margin:4px 0 6px;padding-left:18px}.lint li{margin:2px 0}
+.lint .btn{height:26px;font-size:12px;padding:0 10px}
 /* fill handle */
 .fh{position:fixed;width:9px;height:9px;background:var(--blue);border:1.5px solid #fff;border-radius:2px;cursor:crosshair;z-index:55;display:none;touch-action:none;box-shadow:0 0 0 1px var(--blue)}
 .fh.show{display:block}
@@ -391,6 +397,7 @@ body.filling,body.filling *{cursor:crosshair!important;user-select:none}
             <div class="field" data-for="meeting activity"><label for="fPlace">장소</label><input class="txt dinp" id="fPlace" placeholder="예: 본교 PBL실" autocomplete="off"></div>
             <div class="field" data-for="snack meeting"><label for="fTarget">대상</label><input class="txt dinp" id="fTarget" placeholder="예: 인문학과 윤리 수강학생 8명" autocomplete="off"></div>
             <div class="field" data-for="activity"><label for="fContent">내용 <span class="opt">비우면 품목명으로 써요</span></label><input class="txt dinp" id="fContent" placeholder="예: AI 부스 설치 및 모임 간식비(9차)" autocomplete="off"></div>
+            <div class="field"><label for="fAttach">붙임 <span class="opt">선택 · 쉼표로 구분</span></label><input class="txt dinp" id="fAttach" placeholder="예: 견적서, 장바구니 화면" autocomplete="off"></div>
             <div class="field" data-for="goods"><label for="fShop">구입처 <span class="opt">선택</span></label><input class="txt dinp" id="fShop" placeholder="예: 학교장터(S2B), 오프라인 매장(○○문구)" autocomplete="off"></div>
           </div>
           <div>
@@ -398,7 +405,8 @@ body.filling,body.filling *{cursor:crosshair!important;user-select:none}
               <input class="txt" id="titleOut" spellcheck="false"></div>
             <div class="field"><div class="lab"><label for="summaryOut">개요</label><span class="grow"></span><button class="linkish" id="regen" hidden>다시 만들기</button><button class="copy" data-copy="summaryOut">복사</button></div>
               <textarea class="txt mono" id="summaryOut" spellcheck="false" rows="12"></textarea>
-              <span class="opt">직접 고친 뒤에는 자동으로 바뀌지 않아요. 원래대로 돌리려면 '다시 만들기'를 누르세요.</span></div>
+              <span class="opt">직접 고친 뒤에는 자동으로 바뀌지 않아요. 원래대로 돌리려면 '다시 만들기'를 누르세요.</span>
+              <div class="lint" id="lintBox" aria-live="polite"></div></div>
           </div>
         </div>
       </div>
@@ -574,6 +582,8 @@ body.filling,body.filling *{cursor:crosshair!important;user-select:none}
           <ul>
             <li><b>관련 문서</b>를 적으면 "1. 관련: … 2. … 가. 나. 다." 형식, 비우면 "문장 + 1. 2. 3." 형식이 돼요.</li>
             <li>빈 칸은 개요에서 빠져요. 조사(을/를)는 받침에 맞춰 붙어요.</li>
+            <li><b>공문서 작성 규칙</b>에 맞춰 써요: 날짜 <code>2026. 10. 28.(수)</code>, 시간 <code>17:00~18:00</code>, 금액 <code>금37,500원(금삼만칠천오백원)</code>, 항목이 하나면 기호 생략, 마지막은 2타 띄우고 <code>끝.</code>(붙임이 있으면 붙임 뒤에).</li>
+            <li>개요를 직접 고치면 아래 <b>공문서 규칙 점검</b>이 틀린 표기를 알려 주고, [자동 고치기]로 한 번에 바로잡을 수 있어요.</li>
             <li>제목·개요를 직접 고치면 더는 자동으로 바뀌지 않아요. 원래대로 돌리려면 [다시 만들기]를 누르세요.</li>
             <li>[복사]를 눌러 에듀파인 제목·개요 칸에 붙여넣으세요.</li>
           </ul>
@@ -2074,10 +2084,24 @@ function hasBatchim(w){
   return false;
 }
 const eul=w=>w+(hasBatchim(w)?"을":"를");
-function fmtDate(v,long){
+/* 공문서 표기: 날짜는 연·월·일 대신 마침표, 시간은 24시각제 쌍점, 물결표는 붙여 씀, 금액은 한글 병기 */
+function fmtDate(v){
   if(!v)return "";const [y,m,d]=v.split("-").map(Number);if(!y||!m||!d)return "";
   const wd="일월화수목금토"[new Date(y,m-1,d).getDay()];
-  return long?`${y}년 ${m}월 ${d}일 ${wd}요일`:`${y}. ${m}. ${d}.(${wd})`;
+  return `${y}. ${m}. ${d}.(${wd})`;
+}
+function normTime(t){
+  t=clean(t);if(!t)return "";
+  t=t.replace(/(\d{1,2})\s*시\s*(\d{1,2})\s*분/g,(m,h,mi)=>`${h.padStart(2,"0")}:${mi.padStart(2,"0")}`)
+     .replace(/(\d{1,2})\s*시(?=\s*[~∼\-–]|\s*$|\s*\))/g,(m,h)=>`${h.padStart(2,"0")}:00`)
+     .replace(/\b(\d):(\d{2})\b/g,"0$1:$2")
+     .replace(/\s*[~∼–]\s*/g,"~").replace(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/g,"$1~$2");
+  return t;
+}
+const wonH=n=>`금${fmt(n)}원(금${hangulAmount(n)}원)`;
+function attachList(){
+  return clean($("#fAttach").value).split(/\s*[,，\n]\s*/).map(x=>x.replace(/[.。]+$/,"").trim()).filter(Boolean)
+    .map(x=>/\d+\s*(부|매|장|권|식|건|개|철|점)$/.test(x)?x:x+" 1부");
 }
 function buildDoc(k,sum){
   const label=itemLabel(),P=clean($("#purpose").value),rel=clean($("#relDoc").value);
@@ -2095,7 +2119,7 @@ function buildDoc(k,sum){
     const units=[...new Set(valid.map(it=>clean(it.unit)))];
     const qtySum=valid.reduce((a,it)=>a+(num(it.qty)||0),0);
     const qtyTxt=valid.length===1?`${fmt(qtySum)}${clean(valid[0].unit)||"개"}`:(units.length===1&&units[0]?`총 ${fmt(qtySum)}${units[0]}(${valid.length}종)`:`${valid.length}종`);
-    rows=[["품    명",label],["수    량",label?qtyTxt:""],["구 입 처",v("fShop")],["총    액",won(sum)]];
+    rows=[["품    명",label],["수    량",label?qtyTxt:""],["구 입 처",v("fShop")],["총    액",wonH(sum)]];
   }else{
     const suffix=k==="meeting"?"비 지출":k==="activity"?" 운영비 지출":" 지출";
     if(P)title=/지출$/.test(P)?P:/비$/.test(P)?P+" 지출":P+suffix;else title=label?`${label} 지출`:"";
@@ -2104,30 +2128,35 @@ function buildDoc(k,sum){
     else if(k==="meeting")sentence=`${eul(P)} 실시하고, 이에 따른 운영비를 지출하고자 합니다.`;
     else if(k==="activity")sentence=`${P}에 따른 운영비를 다음과 같이 지출하고자 합니다.`;
     else sentence=`${P}에 따른 경비를 다음과 같이 지출하고자 합니다.`;
-    const date=fmtDate($("#fDate").value,k==="snack"&&!rel);const time=v("fTime");
+    const date=fmtDate($("#fDate").value);const time=normTime(v("fTime"));
     const when=[date,time].filter(Boolean).join(" ");
     if(k==="snack"){
       let content="";
-      if(valid.length===1){const it=valid[0];content=`${won(num(it.price)||0)} * ${fmt(num(it.qty)||0)}${clean(it.unit)} = ${won(sum)}`;}
-      else if(valid.length>1&&valid.length<=4)content=valid.map(it=>`${clean(it.name)} ${won(num(it.price)||0)} * ${fmt(num(it.qty)||0)}${clean(it.unit)}`).join(", ");
+      if(valid.length===1){const it=valid[0];content=`${won(num(it.price)||0)} × ${fmt(num(it.qty)||0)}${clean(it.unit)} = ${wonH(sum)}`;}
+      else if(valid.length>1&&valid.length<=4)content=valid.map(it=>`${clean(it.name)} ${won(num(it.price)||0)} × ${fmt(num(it.qty)||0)}${clean(it.unit)}`).join(", ");
       else if(valid.length)content=label;
       rows=[["일시",date],["대상",v("fTarget")],["지출내용",content]];
-      if(valid.length>1)rows.push(["총액",won(sum)]);
+      if(valid.length>1)rows.push(["총액",wonH(sum)]);
     }else if(k==="meeting"){
-      rows=[["일시",when],["장소",v("fPlace")],["대상",v("fTarget")],["총 금액",won(sum)]];
+      rows=[["일시",when],["장소",v("fPlace")],["대상",v("fTarget")],["총 금액",wonH(sum)]];
     }else{
-      rows=[["일시",when],["장소",v("fPlace")],["내용",v("fContent")||label],["총액",won(sum)]];
+      rows=[["일시",when],["장소",v("fPlace")],["내용",v("fContent")||label],["총액",wonH(sum)]];
     }
   }
   rows=rows.filter(r=>r[1]);
   const KO="가나다라마바사아자차카타파하";
-  let out;
+  let out;const one=rows.length===1; // 항목이 하나뿐이면 항목 기호를 붙이지 않음
   if(rel){
-    out=`1. 관련: ${rel}\n2. ${sentence}\n`+rows.map((r,i)=>`  ${KO[i]}. ${r[0]}: ${r[1]}`).join("\n");
+    out=`1. 관련: ${rel}\n2. ${sentence}`+(rows.length?"\n"+rows.map((r,i)=>one?`  ${r[0].replace(/\s+/g,"")}: ${r[1]}`:`  ${KO[i]}. ${r[0]}: ${r[1]}`).join("\n"):"");
   }else{
-    out=`${sentence}\n\n`+rows.map((r,i)=>`${i+1}. ${r[0]}: ${r[1]}`).join("\n");
+    out=`${sentence}`+(rows.length?"\n\n"+rows.map((r,i)=>one?`${r[0].replace(/\s+/g,"")}: ${r[1]}`:`${i+1}. ${r[0]}: ${r[1]}`).join("\n"):"");
   }
-  out=out.replace(/\.?$/,"")+".  끝.";
+  out=out.replace(/\.?$/,"")+".";
+  const att=attachList();
+  if(att.length){ // 붙임 다음 2타 띄우고 끝
+    out+="\n\n붙임  "+(att.length===1?`${att[0]}.`:att.map((a,i)=>(i?"      ":"")+`${i+1}. ${a}.`).join("\n"));
+  }
+  out+="  끝.";
   return {title,summary:out};
 }
 function genText(sum){
@@ -2141,9 +2170,34 @@ function genText(sum){
   const d=has?buildDoc(k,sum):{title:"",summary:""};
   if(!titleTouched)$("#titleOut").value=d.title;
   if(!sumTouched)$("#summaryOut").value=d.summary;
+  lintDoc();
   if(!fnameTouched){const dt=new Date(),ymd=`${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,"0")}${String(dt.getDate()).padStart(2,"0")}`;
     $("#fname").value=`품목내역_${ymd}${label?"_"+label.replace(/[\\/:*?"<>|]/g,"").slice(0,30):""}.xls`;}
 }
+/* ---------- 공문서 규칙 점검 ---------- */
+const LINT=[
+  {m:"마지막은 2타 띄우고 '끝.'으로 맺어요",t:x=>!/\S  끝\.\s*$/.test(x),f:x=>x.replace(/\s*끝\.?\s*$/,"").replace(/\s+$/,"").replace(/([^.])$/,"$1.")+"  끝."},
+  {m:"물결표(~)는 앞뒤 말에 붙여 써요",t:x=>/\s[~∼]|[~∼]\s/.test(x),f:x=>x.replace(/\s*[~∼]\s*/g,"~")},
+  {m:"쌍점(:)은 앞말에 붙이고 뒷말과 띄워요",t:x=>/[^\d\s] +:|[가-힣a-zA-Z)]:(?=[^\s\d/])/.test(x),f:x=>x.replace(/([^\d\s]) +:/g,"$1:").replace(/([가-힣a-zA-Z)]):(?=[^\s\d/])/g,"$1: ")},
+  {m:"날짜는 '2026. 10. 28.'처럼 연·월·일 대신 마침표로 써요",t:x=>/\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/.test(x),
+    f:x=>x.replace(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(\s*\(?([월화수목금토일])요일\)?)?/g,(m,y,mo,d,_,w)=>`${y}. ${+mo}. ${+d}.`+(w?`(${w})`:"")).replace(/\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/g,(m,y,mo,d)=>`${y}. ${+mo}. ${+d}.`)},
+  {m:"시간은 '17:00'처럼 24시각제와 쌍점으로 써요",t:x=>/\d{1,2}\s*시\s*\d{1,2}\s*분|\d{1,2}\s*시(?=\s*[~∼\-]|\s*$|\s*\))/m.test(x),f:x=>x.split("\n").map(normTime).join("\n")},
+  {m:"총액은 '금37,500원(금삼만칠천오백원)'처럼 한글 금액을 함께 써요",t:x=>/(총\s*액|총 금액|소요예산|합\s*계)\s*:\s*금?[\d,]+원(?!\()/.test(x),
+    f:x=>x.replace(/((?:총\s*액|총 금액|소요예산|합\s*계)\s*:\s*)금?([\d,]+)원(?!\()/g,(m,p,n)=>{const v=+n.replace(/,/g,"");return p+wonH(v);})},
+  {m:"'붙임'은 붙여 쓰고 쌍점을 찍지 않아요",t:x=>/붙\s+임|붙임\s*:/.test(x),f:x=>x.replace(/붙\s+임/g,"붙임").replace(/붙임\s*:\s*/g,"붙임  ")},
+];
+function lintDoc(){
+  const x=$("#summaryOut").value,box=$("#lintBox");
+  if(!clean(x)){box.className="lint";box.innerHTML="";return [];}
+  const bad=LINT.filter(r=>{try{return r.t(x);}catch(e){return false;}});
+  if(!bad.length){box.className="lint ok";box.textContent="✓ 공문서 작성 규칙에 맞아요";}
+  else{box.className="lint warn";box.innerHTML="<b>공문서 규칙 점검</b><ul>"+bad.map(r=>`<li>${esc(r.m)}</li>`).join("")+'</ul><button class="btn" id="lintFix" type="button">자동 고치기</button>';
+    $("#lintFix").onclick=()=>{let y=$("#summaryOut").value;bad.forEach(r=>{try{y=r.f(y);}catch(e){}});
+      // 끝 표시는 마지막에 다시 맞춤
+      y=LINT[0].t(y)?LINT[0].f(y):y;$("#summaryOut").value=y;sumTouched=true;$("#regen").hidden=false;autosave();lintDoc();toast("공문서 규칙에 맞게 고쳤어요");};}
+  return bad;
+}
+$("#summaryOut").addEventListener("input",lintDoc);
 document.querySelectorAll("button.copy").forEach(b=>b.onclick=async()=>{
   const el=$("#"+b.dataset.copy);if(!el.value){toast("복사할 내용이 없어요.");return;}
   let ok=false;try{await navigator.clipboard.writeText(el.value);ok=true;}catch(e){}
